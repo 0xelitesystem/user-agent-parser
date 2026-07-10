@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Agent Parser</title>
+<meta name="description" content="Paste a User-Agent string to break it into browser, engine, operating system, and device type. Pure local heuristics, no library, no network.">
+<link rel="canonical" href="https://0xelitesystem.github.io/user-agent-parser/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="User Agent Parser">
+<meta property="og:description" content="Paste a User-Agent string to break it into browser, engine, operating system, and device type. Pure local heuristics, no library, no network.">
+<meta property="og:url" content="https://0xelitesystem.github.io/user-agent-parser/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"User Agent Parser","applicationCategory":"DeveloperApplication","operatingSystem":"Any (browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://0xelitesystem.github.io/user-agent-parser/","author":{"@type":"Person","name":"0xelitesystem","url":"https://elitesystem.ai"}}
+</script>
+<style>
+:root {
+  --bg: #fafaf6;
+  --surface: #ffffff;
+  --ink: #0a1d1e;
+  --ink-soft: #2c4a4c;
+  --rule: #c8d4d3;
+  --teal: #0f5c60;
+  --teal-deep: #0a4548;
+  --gold: #b07d2a;
+  --gold-deep: #8a611f;
+  --ok: #1a5c2e;
+  --warn: #8a5a00;
+  --err: #8b1a1a;
+  --code-bg: #f0ebe1;
+}
+[data-theme="dark"] {
+  --bg: #0c1c1d;
+  --surface: #14292a;
+  --ink: #e8ebe6;
+  --ink-soft: #b0c0bd;
+  --rule: #2a4042;
+  --teal: #4ab4ba;
+  --teal-deep: #6dc8ce;
+  --gold: #d4a155;
+  --gold-deep: #e6b876;
+  --ok: #6dd380;
+  --warn: #d4a155;
+  --err: #e88080;
+  --code-bg: #0a1718;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  line-height: 1.55;
+}
+.wrap { max-width: 1100px; margin: 0 auto; }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 2px solid var(--teal);
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--teal);
+}
+.tag {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.75rem;
+  color: var(--gold-deep);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+[data-theme="dark"] .tag { color: var(--gold); }
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.theme-btn:hover { border-color: var(--teal); color: var(--teal); }
+.lede {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 1.75rem;
+  max-width: 62ch;
+}
+.input-box {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 1.25rem;
+  margin-bottom: 1.75rem;
+  border-radius: 3px;
+}
+label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+textarea {
+  width: 100%;
+  min-height: 90px;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  resize: vertical;
+  border-radius: 2px;
+}
+textarea:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+button {
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 2px;
+}
+button:hover { border-color: var(--teal); }
+button.primary {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--surface);
+  font-weight: 600;
+}
+[data-theme="dark"] button.primary { color: var(--bg) !important; }
+button.primary:hover { background: var(--teal-deep); border-color: var(--teal-deep); }
+.privacy-note {
+  font-size: 0.78rem;
+  color: var(--gold-deep);
+  margin-top: 0.75rem;
+}
+[data-theme="dark"] .privacy-note { color: var(--gold); }
+.results { display: none; }
+.results.show { display: block; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 1.1rem 1.25rem;
+  border-radius: 3px;
+}
+.card-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+.card-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--teal);
+  word-break: break-word;
+}
+.card-sub {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}
+.detail {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 1.1rem 1.25rem;
+  border-radius: 3px;
+}
+.detail-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.65rem; }
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.82rem;
+}
+.kv-key { color: var(--ink-soft); }
+.kv-val { color: var(--ink); word-break: break-all; }
+.error-msg {
+  color: var(--err);
+  font-size: 0.85rem;
+  margin-top: 0.85rem;
+  padding: 0.65rem;
+  background: var(--code-bg);
+  border-left: 3px solid var(--err);
+  border-radius: 2px;
+}
+footer {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+footer a { color: var(--teal); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+  body { padding: 1rem 0.75rem; }
+  h1 { font-size: 1.4rem; }
+  .kv { grid-template-columns: 1fr; gap: 0.1rem 0; }
+  .kv-key { margin-top: 0.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>User Agent Parser</h1>
+    <div class="tag">Break a UA string into its parts</div>
+  </div>
+  <button class="theme-btn" id="theme-toggle" type="button">Dark</button>
+</header>
+
+<p class="lede">Paste a User-Agent string, or load the one your browser is sending, and see the browser, rendering engine, operating system, and device type it points to. Parsing is done with local heuristics on this page. No library, no network.</p>
+
+<div class="input-box">
+  <label for="ua-input">User-Agent string</label>
+  <textarea id="ua-input" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+  <div class="input-row">
+    <button class="primary" id="parse-btn" type="button">Parse</button>
+    <button id="mine-btn" type="button">Use my browser</button>
+    <button id="sample-btn" type="button">Load sample</button>
+    <button id="clear-btn" type="button">Clear</button>
+  </div>
+  <div class="privacy-note">All parsing happens locally. The string is never sent to any server.</div>
+</div>
+
+<div id="error-box"></div>
+
+<div class="results" id="results">
+  <div class="cards" id="cards"></div>
+  <div class="detail">
+    <div class="detail-title">Full breakdown</div>
+    <div class="kv" id="kv"></div>
+  </div>
+</div>
+
+<footer>
+  <div>User Agent Parser. Open source, MIT licensed. <a href="https://github.com/0xelitesystem/user-agent-parser" target="_blank" rel="noopener">View source</a>.</div>
+  <div>Heuristic parsing. UA strings can be spoofed and are not proof of identity.</div>
+</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// Theme toggle
+const themeBtn = $("theme-toggle");
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  themeBtn.textContent = t === "dark" ? "Light" : "Dark";
+}
+themeBtn.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "light";
+  setTheme(cur === "dark" ? "light" : "dark");
+});
+setTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function m(ua, re) {
+  const r = re.exec(ua);
+  return r ? r : null;
+}
+
+function parseUA(ua) {
+  ua = ua.trim();
+  if (!ua) throw new Error("Paste a User-Agent string to parse.");
+
+  const out = {
+    browser: { name: "Unknown", version: "" },
+    engine: { name: "Unknown", version: "" },
+    os: { name: "Unknown", version: "" },
+    device: { type: "Unknown" },
+  };
+
+  // ---- Rendering engine ----
+  let r;
+  if ((r = m(ua, /EdgeHTML\/([\d.]+)/))) { out.engine = { name: "EdgeHTML", version: r[1] }; }
+  else if ((r = m(ua, /Trident\/([\d.]+)/))) { out.engine = { name: "Trident", version: r[1] }; }
+  else if ((r = m(ua, /Gecko\/[\d.]+|rv:([\d.]+).*Gecko/)) && /Gecko/.test(ua) && !/like Gecko/.test(ua)) {
+    const rv = m(ua, /rv:([\d.]+)/);
+    out.engine = { name: "Gecko", version: rv ? rv[1] : "" };
+  }
+  else if ((r = m(ua, /AppleWebKit\/([\d.]+)/))) {
+    // WebKit family; Blink is WebKit-derived but Chrome/Edge report AppleWebKit too.
+    if (/Chrome\/|Chromium\/|Edg\//.test(ua)) out.engine = { name: "Blink", version: r[1] };
+    else out.engine = { name: "WebKit", version: r[1] };
+  }
+  else if ((r = m(ua, /Presto\/([\d.]+)/))) { out.engine = { name: "Presto", version: r[1] }; }
+
+  // ---- Browser (order matters: most specific first) ----
+  let b;
+  if ((b = m(ua, /(?:Edg|Edge|EdgA|EdgiOS)\/([\d.]+)/))) {
+    out.browser = { name: "Microsoft Edge", version: b[1] };
+  } else if ((b = m(ua, /OPR\/([\d.]+)/)) || (b = m(ua, /\bOpera\/([\d.]+)/))) {
+    const ver = m(ua, /(?:OPR|Version)\/([\d.]+)/);
+    out.browser = { name: "Opera", version: ver ? ver[1] : b[1] };
+  } else if ((b = m(ua, /SamsungBrowser\/([\d.]+)/))) {
+    out.browser = { name: "Samsung Internet", version: b[1] };
+  } else if ((b = m(ua, /YaBrowser\/([\d.]+)/))) {
+    out.browser = { name: "Yandex Browser", version: b[1] };
+  } else if ((b = m(ua, /Vivaldi\/([\d.]+)/))) {
+    out.browser = { name: "Vivaldi", version: b[1] };
+  } else if ((b = m(ua, /Brave\/([\d.]+)/))) {
+    out.browser = { name: "Brave", version: b[1] };
+  } else if ((b = m(ua, /UCBrowser\/([\d.]+)/))) {
+    out.browser = { name: "UC Browser", version: b[1] };
+  } else if ((b = m(ua, /(?:FxiOS)\/([\d.]+)/))) {
+    out.browser = { name: "Firefox (iOS)", version: b[1] };
+  } else if ((b = m(ua, /(?:CriOS)\/([\d.]+)/))) {
+    out.browser = { name: "Chrome (iOS)", version: b[1] };
+  } else if ((b = m(ua, /Firefox\/([\d.]+)/))) {
+    out.browser = { name: "Firefox", version: b[1] };
+  } else if ((b = m(ua, /(?:Chromium)\/([\d.]+)/))) {
+    out.browser = { name: "Chromium", version: b[1] };
+  } else if ((b = m(ua, /Chrome\/([\d.]+)/))) {
+    out.browser = { name: "Chrome", version: b[1] };
+  } else if (/Safari\//.test(ua) && (b = m(ua, /Version\/([\d.]+)/))) {
+    out.browser = { name: "Safari", version: b[1] };
+  } else if (/Safari\//.test(ua)) {
+    out.browser = { name: "Safari", version: "" };
+  } else if ((b = m(ua, /MSIE ([\d.]+)/))) {
+    out.browser = { name: "Internet Explorer", version: b[1] };
+  } else if (/Trident\//.test(ua) && (b = m(ua, /rv:([\d.]+)/))) {
+    out.browser = { name: "Internet Explorer", version: b[1] };
+  } else if ((b = m(ua, /(curl|wget|python-requests|PostmanRuntime|Go-http-client|axios|okhttp|Java|libwww-perl|HeadlessChrome)\/?([\d.]*)/i))) {
+    out.browser = { name: b[1], version: b[2] || "" };
+    out.device.type = "Bot or tool";
+  } else if (/bot|crawler|spider|slurp|bingpreview|googlebot/i.test(ua)) {
+    const bm = m(ua, /([A-Za-z]+bot)\/?([\d.]*)/i);
+    out.browser = { name: bm ? bm[1] : "Bot", version: bm ? bm[2] : "" };
+    out.device.type = "Bot or tool";
+  }
+
+  // ---- Operating system ----
+  let o;
+  if ((o = m(ua, /Windows NT ([\d.]+)/))) {
+    const map = { "10.0": "10 or 11", "6.3": "8.1", "6.2": "8", "6.1": "7", "6.0": "Vista", "5.1": "XP", "5.2": "XP x64" };
+    out.os = { name: "Windows", version: map[o[1]] || o[1] };
+  } else if (/Windows Phone/.test(ua)) {
+    const wp = m(ua, /Windows Phone (?:OS )?([\d.]+)/);
+    out.os = { name: "Windows Phone", version: wp ? wp[1] : "" };
+    out.device.type = out.device.type === "Unknown" ? "Mobile" : out.device.type;
+  } else if (/Windows/.test(ua)) {
+    out.os = { name: "Windows", version: "" };
+  } else if ((o = m(ua, /Android[ /]([\d.]+)/))) {
+    out.os = { name: "Android", version: o[1] };
+  } else if (/Android/.test(ua)) {
+    out.os = { name: "Android", version: "" };
+  } else if ((o = m(ua, /(?:iPhone|iPad|iPod).*?OS ([\d_]+)/)) || (o = m(ua, /CPU OS ([\d_]+)/))) {
+    out.os = { name: "iOS", version: o[1].replace(/_/g, ".") };
+  } else if (/iPhone|iPad|iPod/.test(ua)) {
+    out.os = { name: "iOS", version: "" };
+  } else if ((o = m(ua, /Mac OS X ([\d_]+)/))) {
+    out.os = { name: "macOS", version: o[1].replace(/_/g, ".") };
+  } else if (/Macintosh|Mac OS X/.test(ua)) {
+    out.os = { name: "macOS", version: "" };
+  } else if (/CrOS/.test(ua)) {
+    out.os = { name: "ChromeOS", version: "" };
+  } else if ((o = m(ua, /Ubuntu/))) {
+    out.os = { name: "Ubuntu Linux", version: "" };
+  } else if (/Linux/.test(ua)) {
+    out.os = { name: "Linux", version: "" };
+  } else if (/FreeBSD|OpenBSD|NetBSD/.test(ua)) {
+    const bsd = m(ua, /(FreeBSD|OpenBSD|NetBSD)/);
+    out.os = { name: bsd[1], version: "" };
+  }
+
+  // ---- Device type (if not already set to Bot) ----
+  if (out.device.type === "Unknown") {
+    if (/iPad/.test(ua) || (/Android/.test(ua) && !/Mobile/.test(ua) && !/Windows Phone/.test(ua))) {
+      out.device.type = "Tablet";
+    } else if (/Mobi|Mobile|iPhone|iPod|Windows Phone|Android/.test(ua)) {
+      out.device.type = "Mobile";
+    } else if (/TV|SmartTV|AppleTV|GoogleTV|CrKey|Roku/.test(ua)) {
+      out.device.type = "TV";
+    } else if (/Windows|Macintosh|Mac OS X|Linux|CrOS|X11/.test(ua)) {
+      out.device.type = "Desktop";
+    }
+  }
+
+  return out;
+}
+
+function render(out) {
+  const cards = $("cards");
+  cards.innerHTML = "";
+  function card(labelText, value, sub) {
+    const c = document.createElement("div"); c.className = "card";
+    const l = document.createElement("div"); l.className = "card-label"; l.textContent = labelText;
+    const v = document.createElement("div"); v.className = "card-value"; v.textContent = value || "Unknown";
+    c.appendChild(l); c.appendChild(v);
+    if (sub) { const s = document.createElement("div"); s.className = "card-sub"; s.textContent = sub; c.appendChild(s); }
+    cards.appendChild(c);
+  }
+  card("Browser", out.browser.name, out.browser.version ? "version " + out.browser.version : "version unknown");
+  card("Operating System", out.os.name, out.os.version ? "version " + out.os.version : "version unknown");
+  card("Device Type", out.device.type, "");
+  card("Engine", out.engine.name, out.engine.version ? "version " + out.engine.version : "version unknown");
+
+  const kv = $("kv");
+  kv.innerHTML = "";
+  function row(k, v) {
+    const kd = document.createElement("div"); kd.className = "kv-key"; kd.textContent = k;
+    const vd = document.createElement("div"); vd.className = "kv-val"; vd.textContent = v || "(unknown)";
+    kv.appendChild(kd); kv.appendChild(vd);
+  }
+  row("Browser name", out.browser.name);
+  row("Browser version", out.browser.version);
+  row("Engine name", out.engine.name);
+  row("Engine version", out.engine.version);
+  row("OS name", out.os.name);
+  row("OS version", out.os.version);
+  row("Device type", out.device.type);
+}
+
+function run() {
+  $("error-box").innerHTML = "";
+  let out;
+  try {
+    out = parseUA($("ua-input").value);
+  } catch (e) {
+    $("error-box").innerHTML = `<div class="error-msg">${escapeHtml(e.message)}</div>`;
+    $("results").classList.remove("show");
+    return;
+  }
+  render(out);
+  $("results").classList.add("show");
+}
+
+$("parse-btn").addEventListener("click", run);
+$("ua-input").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
+});
+
+$("mine-btn").addEventListener("click", () => {
+  $("ua-input").value = navigator.userAgent || "";
+  run();
+});
+$("sample-btn").addEventListener("click", () => {
+  $("ua-input").value = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1";
+  run();
+});
+$("clear-btn").addEventListener("click", () => {
+  $("ua-input").value = "";
+  $("results").classList.remove("show");
+  $("error-box").innerHTML = "";
+  $("ua-input").focus();
+});
+</script>
+</body>
+</html>
